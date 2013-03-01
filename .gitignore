@@ -18,3 +18,11 @@ local.properties
 # Eclipse project files
 .classpath
 .project
+
+# unity cache file
+Library
+Temp
+*.pidb
+*.unityproj
+*.sln
+*.userprefs
