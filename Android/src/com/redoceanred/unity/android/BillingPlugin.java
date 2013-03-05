@@ -25,62 +25,87 @@ import com.unity3d.player.UnityPlayer;
 import android.content.Intent;
 import android.util.Log;
 
-class BillingPluginCallback {
-	private String mGameObject;
-
-	public BillingPluginCallback(final String gameObject) {
-		mGameObject = gameObject;
-	}
-
-	public void initMessage(boolean success) {
-		UnityPlayer.UnitySendMessage(mGameObject, "InitMessage", Boolean.toString(success));
-	}
-
-	public void purchaseMessage(String productId, boolean success) {
-		purchaseMessage(productId, success, "");
-	}
-
-	public void purchaseMessage(String productId, boolean success, String payload) {
-		UnityPlayer.UnitySendMessage(mGameObject, "PurchaseMessage", productId + "," + Boolean.toString(success) + "," + payload);
-	}
-
-	public void asyncPurchaseMessage(final String productId, final boolean success) {
-		asyncPurchaseMessage(productId, success, "");
-	}
-
-	public void asyncPurchaseMessage(final String productId, final boolean success, final String payload) {
-		(new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				UnityPlayer.UnitySendMessage(mGameObject, "PurchaseMessage", productId + "," + Boolean.toString(success) + "," + payload);
-			}
-		})).start();
-	}
-}
-
+/**
+ * アプリ内課金Plugin.
+ * 
+ * @author keiichiro
+ */
 public class BillingPlugin {
 
 	private static final String TAG = BillingPlugin.class.getSimpleName();
+	/**
+	 * Unity層へのCallbackクラス.
+	 */
 	private BillingPluginCallback mCallBack;
+	/**
+	 * 課金アイテムのID.
+	 */
 	private String mProductId;
 
+	/**
+	 * プラグインの内部状態.
+	 */
 	private enum PurchaseState {
-		Initialize, Idle, ConsumablePurchase, NoConSumablePurchase, SubscriptionPurchase
+		/**
+		 * 初期化中.
+		 */
+		Initialize,
+		/**
+		 * アイドル.
+		 */
+		Idle,
+		/**
+		 * 消費アイテム購入処理中.
+		 */
+		ConsumablePurchase,
+		/**
+		 * 非消費アイテム購入処理中.
+		 */
+		NoConSumablePurchase,
+		/**
+		 * サブスクリプション(期間)アイテム購入処理中.
+		 */
+		SubscriptionPurchase,
+		/**
+		 * {@link BillingPlugin}getPurchaseData()にて消費アイテムの課金情報を復帰中.(消費処理中)
+		 */
+		ConsumeRestorePurchaseData
 	}
 
+	/**
+	 * プラグインの内部状態.
+	 */
 	private PurchaseState mPurchaseState = PurchaseState.Initialize;
 
+	/**
+	 * プラグインの初期化を実行.
+	 * 
+	 * @param publicKey
+	 *            アプリのイセンスキー.
+	 * @param gameObject
+	 *            Pluginを使用しているGame Object名.Callback対象となる.
+	 */
 	public void initPlugin(String publicKey, String gameObject) {
 		Log.e(TAG, "Called initPlugin " + gameObject);
 		initBilling(publicKey);
 		mCallBack = new BillingPluginCallback(gameObject);
 	}
 
+	/**
+	 * 通常アイテムの購入処理を実行する.
+	 * 
+	 * @param productId
+	 *            課金アイテムのID.
+	 * @param consume
+	 *            true 消費アイテム, false 非消費アイテム.
+	 * @param payload
+	 *            verify用文字列.
+	 * @return true 成功, false 失敗.
+	 */
 	public boolean purchaseInApp(String productId, boolean consume, String payload) {
 		Log.e(TAG, "Called purchase : " + productId + "  consume : " + consume);
 		if (!mPurchaseState.equals(PurchaseState.Idle)) {
-			// Processing Purchase or initialize.
+			// Processing Purchase or initialize. 何か処理中の場合は購入処理不可.
 			return false;
 		}
 
@@ -93,7 +118,24 @@ public class BillingPlugin {
 		mHelper.launchPurchaseFlow(UnityPlayer.currentActivity, productId, RC_REQUEST, mPurchaseFinishedListener, payload);
 		return true;
 	}
+	
+	/**
+	 * Subscriptionアイテム(定期購入)のサポート.
+	 * @return true サポート,false 非サポート.
+	 */
+	public boolean getSubscriptionsSupported() {
+		return mHelper.subscriptionsSupported();
+	}
 
+	/**
+	 * Subscriptionアイテムの購入処理を実行する.
+	 * 
+	 * @param productId
+	 *            課金アイテムのID.
+	 * @param payload
+	 *            verify用文字列.
+	 * @return true 成功, false 失敗.
+	 */
 	public boolean purchaseSubscription(String productId, String payload) {
 		if (!mHelper.subscriptionsSupported()) {
 			// Subscription Not Support.
@@ -112,32 +154,54 @@ public class BillingPlugin {
 		return true;
 	}
 
-	public String getPurchaseData(String productId, boolean consume) {
+	/**
+	 * 初期化処理後にアプリの購入済みアイテム情報を取得する.
+	 * 
+	 * @param productId
+	 *            課金アイテムのID.
+	 * @param consume
+	 *            true 消費アイテム, false 非消費アイテム.
+	 * @return true 成功, false 失敗.
+	 */
+	public boolean getPurchaseData(String productId, boolean consume) {
 		if (!mPurchaseState.equals(PurchaseState.Idle)) {
-			return "";
+			return false;
 		}
 
-		Purchase purchase = mInventory.getPurchase(productId);
+		final Purchase purchase = mInventory.getPurchase(productId);
 		if (purchase != null) {
 			if (consume) {
-				mHelper.consumeAsync(purchase, mConsumeFinishedListener);
-				mPurchaseState = PurchaseState.ConsumablePurchase;
+				UnityPlayer.currentActivity.runOnUiThread(new Runnable() {
+					
+					@Override
+					public void run() {
+						mHelper.consumeAsync(purchase, mConsumeFinishedListener);
+					}
+				});
+				mPurchaseState = PurchaseState.ConsumeRestorePurchaseData;
 			}
-			return productId + "," + Boolean.toString(true) + "," + purchase.getDeveloperPayload();
+			return true;
 		} else {
-			return productId + "," + Boolean.toString(false);
+			return false;
 		}
 	}
 
+	// 状態を初期化.
 	private void initState() {
 		mPurchaseState = PurchaseState.Idle;
 		mProductId = null;
 	}
 
+	/**
+	 * Acvitityからの実行結果をhandleする.
+	 */
 	public boolean handleActivityResult(int requestCode, int resultCode, Intent data) {
 		return mHelper.handleActivityResult(requestCode, resultCode, data);
 	}
 
+	/**
+	 * リリース処理を実行する.
+	 */
 	public void dispose() {
 		if (mHelper != null) {
 			mHelper.dispose();
@@ -145,52 +209,33 @@ public class BillingPlugin {
 		}
 	}
 
+	// 以下Billingサンプルからの転載.
 	private IabHelper mHelper;
 	private Inventory mInventory;
-
-	// (arbitrary) request code for the purchase flow
 	static final int RC_REQUEST = 10001;
 
 	public void initBilling(String publicKey) {
-		// Create the helper, passing it our context and the public key to
-		// verify signatures with
-		Log.d(TAG, "Creating IAB helper.");
 		mHelper = new IabHelper(UnityPlayer.currentActivity, publicKey);
-
-		// enable debug logging (for a production application, you should set
-		// this to false).
 		mHelper.enableDebugLogging(true);
-
-		// Start setup. This is asynchronous and the specified listener
-		// will be called once setup completes.
-		Log.d(TAG, "Starting setup.");
 		mHelper.startSetup(new IabHelper.OnIabSetupFinishedListener() {
 			public void onIabSetupFinished(IabResult result) {
-				Log.d(TAG, "Setup finished.");
-
 				if (!result.isSuccess()) {
 					mCallBack.initMessage(false);
 					return;
 				}
-
-				// Hooray, IAB is fully set up. Now, let's get an inventory of
-				// stuff we own.
-				Log.d(TAG, "Setup successful. Querying inventory.");
 				mHelper.queryInventoryAsync(mGotInventoryListener);
 			}
 		});
 	}
 
-	// Listener that's called when we finish querying the items and
-	// subscriptions we own
+	// 初期化完了通知.
 	IabHelper.QueryInventoryFinishedListener mGotInventoryListener = new IabHelper.QueryInventoryFinishedListener() {
 		public void onQueryInventoryFinished(IabResult result, Inventory inventory) {
-			Log.d(TAG, "Query inventory finished.");
 			if (result.isFailure()) {
+				mCallBack.initMessage(false);
 				return;
 			}
-			Log.d(TAG, "Query inventory was successful.");
-
+			// リストア情報を内部に保持する.
 			mInventory = inventory;
 			initState();
 
@@ -200,14 +245,12 @@ public class BillingPlugin {
 			}
 
 			mCallBack.initMessage(true);
-			Log.d(TAG, "Initial inventory query finished; enabling main UI.");
 		}
 	};
 
-	// Callback for when a purchase is finished
+	// 購入完了イベントの通知.
 	IabHelper.OnIabPurchaseFinishedListener mPurchaseFinishedListener = new IabHelper.OnIabPurchaseFinishedListener() {
 		public void onIabPurchaseFinished(IabResult result, Purchase purchase) {
-			Log.d(TAG, "Purchase finished: " + result + ", purchase: " + purchase);
 			if (result.isFailure()) {
 				String sku = null;
 				if (purchase == null) {
@@ -220,9 +263,8 @@ public class BillingPlugin {
 				return;
 			}
 
-			Log.d(TAG, "Purchase successful.");
-
 			if (mPurchaseState.equals(PurchaseState.ConsumablePurchase)) {
+				// 消費アイテムの場合はGoogle側の消費を行う.
 				mHelper.consumeAsync(purchase, mConsumeFinishedListener);
 			} else {
 				// purcase success event.
@@ -232,10 +274,13 @@ public class BillingPlugin {
 		}
 	};
 
-	// Called when consumption is complete
+	// 消費完了イベントの通知.
 	IabHelper.OnConsumeFinishedListener mConsumeFinishedListener = new IabHelper.OnConsumeFinishedListener() {
 		public void onConsumeFinished(Purchase purchase, IabResult result) {
-			Log.d(TAG, "Consumption finished. Purchase: " + purchase + ", result: " + result);
+			if (mPurchaseState.equals(PurchaseState.ConsumeRestorePurchaseData)) {
+				initState();
+				return;
+			}
 
 			if (result.isSuccess()) {
 				// purcase success event.
@@ -245,7 +290,6 @@ public class BillingPlugin {
 				mCallBack.purchaseMessage(purchase.getSku(), false);
 			}
 			initState();
-			Log.d(TAG, "End consumption flow.");
 		}
 	};
 }
