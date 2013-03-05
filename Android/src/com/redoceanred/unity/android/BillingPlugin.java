@@ -86,9 +86,14 @@ public class BillingPlugin {
 	 *            Pluginを使用しているGame Object名.Callback対象となる.
 	 */
 	public void initPlugin(String publicKey, String gameObject) {
-		Log.e(TAG, "Called initPlugin " + gameObject);
-		initBilling(publicKey);
+		Log.d(TAG, "Called initPlugin " + gameObject);
+		
 		mCallBack = new BillingPluginCallback(gameObject);
+		if (publicKey == null || publicKey.equals("")) {
+			mCallBack.initMessage(false);
+		} else {
+			initBilling(publicKey);
+		}
 	}
 
 	/**
@@ -103,7 +108,7 @@ public class BillingPlugin {
 	 * @return true 成功, false 失敗.
 	 */
 	public boolean purchaseInApp(String productId, boolean consume, String payload) {
-		Log.e(TAG, "Called purchase : " + productId + "  consume : " + consume);
+		Log.d(TAG, "Called purchase : " + productId + "  consume : " + consume);
 		if (!mPurchaseState.equals(PurchaseState.Idle)) {
 			// Processing Purchase or initialize. 何か処理中の場合は購入処理不可.
 			return false;
@@ -124,6 +129,9 @@ public class BillingPlugin {
 	 * @return true サポート,false 非サポート.
 	 */
 	public boolean getSubscriptionsSupported() {
+		if (mPurchaseState.equals(PurchaseState.Initialize)) {
+			return false;
+		}
 		return mHelper.subscriptionsSupported();
 	}
 
@@ -137,17 +145,15 @@ public class BillingPlugin {
 	 * @return true 成功, false 失敗.
 	 */
 	public boolean purchaseSubscription(String productId, String payload) {
-		if (!mHelper.subscriptionsSupported()) {
-			// Subscription Not Support.
-			mCallBack.asyncPurchaseMessage(productId, false);
-			return false;
-		}
 		if (!mPurchaseState.equals(PurchaseState.Idle)) {
 			// Processing Purchase.
-			mCallBack.asyncPurchaseMessage(productId, false);
 			return false;
 		}
-
+		if (!mHelper.subscriptionsSupported()) {
+			// Subscription Not Support.
+			return false;
+		}
+		
 		mPurchaseState = PurchaseState.SubscriptionPurchase;
 		mProductId = productId;
 		mHelper.launchPurchaseFlow(UnityPlayer.currentActivity, productId, IabHelper.ITEM_TYPE_SUBS, RC_REQUEST, mPurchaseFinishedListener, payload);
