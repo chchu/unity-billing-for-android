@@ -26,7 +26,9 @@ import com.redoceanred.android.billing.util.SkuDetails;
 import com.redoceanred.unity.android.activity.BillingNativeActivity;
 import com.unity3d.player.UnityPlayer;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.net.Uri;
 import android.util.Log;
 
 /**
@@ -256,6 +258,18 @@ public class BillingPlugin {
 			return d.getDescription();
 		} else {
 			return "";
+		}
+	}
+
+	/**
+	 * Playストアアプリを起動する.Subscription解約時に起動する.
+	 */
+	public void startPlayStore() {
+		Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + UnityPlayer.currentActivity.getPackageName()));
+		try {
+			UnityPlayer.currentActivity.startActivity(intent);
+		} catch (ActivityNotFoundException e) {
+			Log.e(TAG, e.toString());
 		}
 	}
 

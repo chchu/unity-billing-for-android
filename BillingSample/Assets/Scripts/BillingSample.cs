@@ -233,12 +233,19 @@ public class BillingSample : MonoBehaviour
             GUI.Label(new Rect(width * 0.25f, height * 0.75f, width * 0.25f, height * 0.25f), premiumProductDetail);
             if (GUI.Button(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), tex_infinite_gas))
             {
+                if (mInfinite)
+                {
+                    GetComponent<BillingPlugin>().StartPlayStore();
+                }
+                else
+                {
                     bool result = GetComponent<BillingPlugin>().PurchaseSubscription(SKU_INFINITE, "");
                     if (!result)
                     {
                         SetPopupLabel(true, "Error Infinite_gas Purchase");
                     }
                 }
+            }
             GUI.Label(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), infiniteProductDetail);
         }
     }

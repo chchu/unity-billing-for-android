@@ -157,6 +157,16 @@ public class BillingPlugin : MonoBehaviour
     }
 
     /**
+     * Playストアアプリを起動する.Subscription解約時に起動する.
+     */
+    public void StartPlayStore()
+    {
+#if UNITY_ANDROID
+        androidPlugin.Call("startPlayStore");
+#endif
+    }
+
+    /**
      * Verify処理.未実装.
      */
     private bool VerifyDeveloperPayload(string payload)
