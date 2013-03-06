@@ -15,10 +15,13 @@
  */
 package com.redoceanred.unity.android.activity;
 
+import com.redoceanred.unity.android.BillingPlugin;
 import com.unity3d.player.*;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
@@ -26,6 +29,26 @@ import android.view.WindowManager;
 
 public class BillingActivity extends Activity
 {
+	private static final String TAG = "activity";
+
+	private BillingPlugin mBillingPlugin;
+	
+	public void setBillingPlugin(BillingPlugin plugin) {
+		mBillingPlugin = plugin;
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult(" + requestCode + "," + resultCode + "," + data);
+
+        if ((mBillingPlugin != null) && !mBillingPlugin.handleActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+        else {
+            Log.d(TAG, "onActivityResult handled by IABUtil.");
+        }
+	}
+
 	private UnityPlayer mUnityPlayer;
 
 	// UnityPlayer.init() should be called before attaching the view to a layout. 
