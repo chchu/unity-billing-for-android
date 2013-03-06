@@ -15,10 +15,14 @@
  */
 package com.redoceanred.unity.android;
 
+import java.util.Arrays;
+import java.util.List;
+
 import com.redoceanred.android.billing.util.IabHelper;
 import com.redoceanred.android.billing.util.IabResult;
 import com.redoceanred.android.billing.util.Inventory;
 import com.redoceanred.android.billing.util.Purchase;
+import com.redoceanred.android.billing.util.SkuDetails;
 import com.redoceanred.unity.android.activity.BillingNativeActivity;
 import com.unity3d.player.UnityPlayer;
 
@@ -82,17 +86,23 @@ public class BillingPlugin {
 	 * 
 	 * @param publicKey
 	 *            アプリのイセンスキー.
+	 * @param inapp
+	 *            In-app ProductsのID文字列.
+	 *            ex gas,premium
+	 * @param inapp
+	 *            Subscription ProductsのID文字列.
+	 *            ex infinite_gas
 	 * @param gameObject
 	 *            Pluginを使用しているGame Object名.Callback対象となる.
 	 */
-	public void initPlugin(String publicKey, String gameObject) {
-		Log.d(TAG, "Called initPlugin " + gameObject);
+	public void initPlugin(String publicKey, String inapp, String subs, String gameObject) {
+		Log.d(TAG, "Called initPlugin " + inapp + " " + subs +  gameObject);
 		
 		mCallBack = new BillingPluginCallback(gameObject);
 		if (publicKey == null || publicKey.equals("")) {
 			mCallBack.initMessage(false);
 		} else {
-			initBilling(publicKey);
+			initBilling(publicKey, inapp, subs);
 		}
 	}
 
@@ -191,11 +201,62 @@ public class BillingPlugin {
 			return false;
 		}
 	}
+	
+	/**
+	 * InAppBillingServiceのアイテム情報を取得する.
+	 * @param productId 課金アイテムのID.
+	 * @return アイテム情報(Json).
+	 *         ref. http://developer.android.com/google/play/billing/billing_reference.html#getSkuDetails
+	 */
+	public String getProductDetail(String productId) {
+		SkuDetails d = mInventory.getSkuDetails(productId);
+		if (d != null) {
+			return d.getJson();
+		} else {
+			return "";
+		}
+	}
 
-	// 状態を初期化.
-	private void initState() {
-		mPurchaseState = PurchaseState.Idle;
-		mProductId = null;
+	/**
+	 * アイテムのPriceを取得する.
+	 * @param productId 課金アイテムのID.
+	 * @return Price.
+	 */
+	public String getProductPrice(String productId) {
+		SkuDetails d = mInventory.getSkuDetails(productId);
+		if (d != null) {
+			return d.getPrice();
+		} else {
+			return "";
+		}
+	}
+
+	/**
+	 * アイテムのTitleを取得する.
+	 * @param productId 課金アイテムのID.
+	 * @return Title.
+	 */
+	public String getProductTitle(String productId) {
+		SkuDetails d = mInventory.getSkuDetails(productId);
+		if (d != null) {
+			return d.getTitle();
+		} else {
+			return "";
+		}
+	}
+
+	/**
+	 * アイテムのDescriptionを取得する.
+	 * @param productId 課金アイテムのID.
+	 * @return Description.
+	 */
+	public String getProductDescription(String productId) {
+		SkuDetails d = mInventory.getSkuDetails(productId);
+		if (d != null) {
+			return d.getDescription();
+		} else {
+			return "";
+		}
 	}
 
 	/**
@@ -220,16 +281,28 @@ public class BillingPlugin {
 	private Inventory mInventory;
 	static final int RC_REQUEST = 10001;
 
-	public void initBilling(String publicKey) {
+	public void initBilling(String publicKey, final String inappSkus, final String subsSkus) {
 		mHelper = new IabHelper(UnityPlayer.currentActivity, publicKey);
 		mHelper.enableDebugLogging(true);
+
 		mHelper.startSetup(new IabHelper.OnIabSetupFinishedListener() {
 			public void onIabSetupFinished(IabResult result) {
 				if (!result.isSuccess()) {
 					mCallBack.initMessage(false);
 					return;
 				}
-				mHelper.queryInventoryAsync(mGotInventoryListener);
+				// In App アイテムIDをListに変換.
+				List<String> inappArray = null;
+				if (inappSkus != null) {
+					inappArray = Arrays.asList(inappSkus.split(","));
+				}
+				// Subscription アイテムIDをListに変換.
+				List<String> subsArray = null;
+				if (subsSkus != null) {
+					subsArray = Arrays.asList(subsSkus.split(","));
+				}
+				// アイテム情報を取得.
+				mHelper.queryInventoryAsync(true, inappArray, subsArray, mGotInventoryListener);
 			}
 		});
 	}
@@ -241,11 +314,13 @@ public class BillingPlugin {
 				mCallBack.initMessage(false);
 				return;
 			}
-			// リストア情報を内部に保持する.
+			
+			// 情報を内部に保持する.
 			mInventory = inventory;
 			initState();
 
 			if (UnityPlayer.currentActivity instanceof BillingNativeActivity) {
+				// ActivityにPluginのインスタンスを登録.
 				BillingNativeActivity nativeActivity = (BillingNativeActivity) UnityPlayer.currentActivity;
 				nativeActivity.setBillingPlugin(BillingPlugin.this);
 			}
@@ -298,4 +373,10 @@ public class BillingPlugin {
 			initState();
 		}
 	};
+	
+	// 状態を初期化.
+	private void initState() {
+		mPurchaseState = PurchaseState.Idle;
+		mProductId = null;
+	}
 }

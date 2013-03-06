@@ -45,6 +45,10 @@ public class BillingSample : MonoBehaviour
     private const string SKU_PREMIUM = "premium";
     private const string SKU_INFINITE = "infinite_gas";
 
+    private string gasProductDetail = "";
+    private string premiumProductDetail = "";
+    private string infiniteProductDetail = "";
+
     private const int TANK_MAX = 4;
 
     private bool mShowLabel;
@@ -58,7 +62,7 @@ public class BillingSample : MonoBehaviour
 
         // 最初にコールバックの設定と初期化処理を実行.結果はコールバックに通知される.
         GetComponent<BillingPlugin>().SetCallback(Callback);
-        GetComponent<BillingPlugin>().Init(publicKey);
+        GetComponent<BillingPlugin>().Init(publicKey, SKU_GAS + "," + SKU_PREMIUM, SKU_INFINITE);
     }
 
     private void LoadData()
@@ -123,7 +127,7 @@ public class BillingSample : MonoBehaviour
     }
 
     /**
-     * 初期化の完了後に購入済みデータを復旧する.
+     * 初期化の完了後に購入済みデータを復旧.課金アイテム情報を取得.
      */
     private void InitBillingData()
     {
@@ -142,6 +146,18 @@ public class BillingSample : MonoBehaviour
             SaveData();
             SetPopupLabel(true, "You filled 1/4 tank. Your tank is now " + mTank.ToString() + "/4 full!");
         }
+
+        gasProductDetail = GetComponent<BillingPlugin>().GetProductTitle(SKU_GAS) + "\n" +
+                           GetComponent<BillingPlugin>().GetProductDescription(SKU_GAS) + "\n" +
+                           GetComponent<BillingPlugin>().GetProductPrice(SKU_GAS) + "\n";
+
+        infiniteProductDetail = GetComponent<BillingPlugin>().GetProductTitle(SKU_INFINITE) + "\n" +
+                                GetComponent<BillingPlugin>().GetProductDescription(SKU_INFINITE) + "\n" +
+                                GetComponent<BillingPlugin>().GetProductPrice(SKU_INFINITE) + "\n";
+
+        premiumProductDetail = GetComponent<BillingPlugin>().GetProductTitle(SKU_PREMIUM) + "\n" +
+                               GetComponent<BillingPlugin>().GetProductDescription(SKU_PREMIUM) + "\n" +
+                               GetComponent<BillingPlugin>().GetProductPrice(SKU_PREMIUM) + "\n";
     }
 
     void OnGUI()
@@ -168,6 +184,7 @@ public class BillingSample : MonoBehaviour
             {
                 Drive();
             }
+
             if (GUI.Button(new Rect(width * 0.5f, height * 0.5f, width * 0.25f, height * 0.25f), tex_buy_gas))
             {
                 if (mInfinite)
@@ -190,14 +207,19 @@ public class BillingSample : MonoBehaviour
                     }
                 }
             }
-            if (!mPremium && GUI.Button(new Rect(width * 0.25f, height * 0.75f, width * 0.25f, height * 0.25f), tex_upgrade_app))
+            if (!mPremium)
             {
-                bool result = GetComponent<BillingPlugin>().Purchase(SKU_PREMIUM, false, "");
-                if (!result)
+                if (GUI.Button(new Rect(width * 0.25f, height * 0.75f, width * 0.25f, height * 0.25f), tex_upgrade_app))
                 {
-                    SetPopupLabel(true, "Error Premium Purchase");
+                    bool result = GetComponent<BillingPlugin>().Purchase(SKU_PREMIUM, false, "");
+                    if (!result)
+                    {
+                        SetPopupLabel(true, "Error Premium Purchase");
+                    }
                 }
+                GUI.Label(new Rect(width * 0.5f, height * 0.5f, width * 0.25f, height * 0.25f), gasProductDetail);
             }
+            GUI.Label(new Rect(width * 0.25f, height * 0.75f, width * 0.25f, height * 0.25f), premiumProductDetail);
             if (GUI.Button(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), tex_infinite_gas))
             {
                 bool result = GetComponent<BillingPlugin>().PurchaseSubscription(SKU_INFINITE, "");
@@ -206,6 +228,7 @@ public class BillingSample : MonoBehaviour
                     SetPopupLabel(true, "Error Infinite_gas Purchase");
                 }
             }
+            GUI.Label(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), infiniteProductDetail);
         }
     }
 

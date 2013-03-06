@@ -587,6 +587,7 @@ public class IabHelper {
      */
     public void queryInventoryAsync(final boolean querySkuDetails,
                                final List<String> moreSkus,
+                               final List<String> moreSubsSkus,
                                final QueryInventoryFinishedListener listener) {
         final Handler handler = new Handler();
         checkSetupDone("queryInventory");
@@ -596,7 +597,7 @@ public class IabHelper {
                 IabResult result = new IabResult(BILLING_RESPONSE_RESULT_OK, "Inventory refresh successful.");
                 Inventory inv = null;
                 try {
-                    inv = queryInventory(querySkuDetails, moreSkus);
+                    inv = queryInventory(querySkuDetails, moreSkus, moreSubsSkus);
                 }
                 catch (IabException ex) {
                     result = ex.getResult();
@@ -616,11 +617,11 @@ public class IabHelper {
     }
 
     public void queryInventoryAsync(QueryInventoryFinishedListener listener) {
-        queryInventoryAsync(true, null, listener);
+        queryInventoryAsync(true, null, null, listener);
     }
 
     public void queryInventoryAsync(boolean querySkuDetails, QueryInventoryFinishedListener listener) {
-        queryInventoryAsync(querySkuDetails, null, listener);
+        queryInventoryAsync(querySkuDetails, null, null, listener);
     }
 
 
@@ -909,7 +910,6 @@ public class IabHelper {
         }
         return BILLING_RESPONSE_RESULT_OK;
     }
-
 
     void consumeAsyncInternal(final List<Purchase> purchases,
                               final OnConsumeFinishedListener singleListener,

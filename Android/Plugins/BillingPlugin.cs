@@ -26,13 +26,13 @@ public class BillingPlugin : MonoBehaviour
     /**
      * プラグインの初期化.Callbackが設定されていた場合はCallbackに結果を通知する.
      */
-    public void Init(string publicKey)
+    public void Init(string publicKey, string inapp, string subs)
     {
         Debug.Log("BillingPlugin Init called ");
 #if UNITY_ANDROID
         Debug.Log("BillingPlugin Init called android");
         androidPlugin = new AndroidJavaObject("com.redoceanred.unity.android.BillingPlugin");
-        androidPlugin.Call("initPlugin", publicKey, gameObject.name);
+        androidPlugin.Call("initPlugin", publicKey, inapp, subs, gameObject.name);
 #endif
     }
 
@@ -97,6 +97,62 @@ public class BillingPlugin : MonoBehaviour
         result = androidPlugin.Call<bool>("getPurchaseData", name, consume);
 #endif
         Debug.Log("BillingPlugin GetPurchaseData result = " + result);
+        return result;
+    }
+
+    /**
+     * アイテムの詳細情報を取得する.
+     * @param name 課金アイテムのID.
+     * @return アイテム情報.
+     */
+    public string GetProductData(string name)
+    {
+        string result = "";
+#if UNITY_ANDROID
+        result = androidPlugin.Call<string>("getProductDetail", name);
+#endif
+        return result;
+    }
+
+    /**
+     * アイテムのPriceを取得する.
+     * @param name 課金アイテムのID.
+     * @return Price.
+     */
+    public string GetProductPrice(string name)
+    {
+        string result = "";
+#if UNITY_ANDROID
+        result = androidPlugin.Call<string>("getProductPrice", name);
+#endif
+        return result;
+    }
+
+    /**
+     * アイテムのTitleを取得する.
+     * @param name 課金アイテムのID.
+     * @return Title.
+     */
+    public string GetProductTitle(string name)
+    {
+        string result = "";
+#if UNITY_ANDROID
+        result = androidPlugin.Call<string>("getProductTitle", name);
+#endif
+        return result;
+    }
+
+    /**
+     * アイテムのDescriptionを取得する.
+     * @param name 課金アイテムのID.
+     * @return Description.
+     */
+    public string GetProductDescription(string name)
+    {
+        string result = "";
+#if UNITY_ANDROID
+        result = androidPlugin.Call<string>("getProductDescription", name);
+#endif
         return result;
     }
 
