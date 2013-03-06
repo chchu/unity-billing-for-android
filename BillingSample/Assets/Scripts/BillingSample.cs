@@ -65,6 +65,17 @@ public class BillingSample : MonoBehaviour
         GetComponent<BillingPlugin>().Init(publicKey, SKU_GAS + "," + SKU_PREMIUM, SKU_INFINITE);
     }
 
+    void Update()
+    {
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            if (Input.GetKey(KeyCode.Escape))
+            {
+                Application.Quit();
+            }
+        }
+    }
+
     private void LoadData()
     {
         mTank = PlayerPrefs.GetInt(SKU_GAS, 2);
@@ -222,12 +233,12 @@ public class BillingSample : MonoBehaviour
             GUI.Label(new Rect(width * 0.25f, height * 0.75f, width * 0.25f, height * 0.25f), premiumProductDetail);
             if (GUI.Button(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), tex_infinite_gas))
             {
-                bool result = GetComponent<BillingPlugin>().PurchaseSubscription(SKU_INFINITE, "");
-                if (!result)
-                {
-                    SetPopupLabel(true, "Error Infinite_gas Purchase");
+                    bool result = GetComponent<BillingPlugin>().PurchaseSubscription(SKU_INFINITE, "");
+                    if (!result)
+                    {
+                        SetPopupLabel(true, "Error Infinite_gas Purchase");
+                    }
                 }
-            }
             GUI.Label(new Rect(width * 0.5f, height * 0.75f, width * 0.25f, height * 0.25f), infiniteProductDetail);
         }
     }
